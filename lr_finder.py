@@ -128,9 +128,9 @@ class LRFinder(object):
                 inputs, labels = next(iterator)
 
             # Train on batch and retrieve loss
-            loss = self._train_batch(inputs, labels)
+            loss, n_samples = self._train_batch(inputs, labels)
             if val_loader:
-                loss = self._validate(val_loader)
+                loss, n_samples = self._validate(val_loader)
 
             # Update the learning rate
             lr_schedule.step()
@@ -164,17 +164,18 @@ class LRFinder(object):
         # Forward pass
         self.optimizer.zero_grad()
         outputs = self.model([inputs, labels], phase='train')
-        loss = self.criterion(outputs)
+        loss, n_samples = self.criterion(outputs)
 
         # Backward pass
         loss.backward()
         self.optimizer.step()
 
-        return loss.item()
+        return loss.item(), n_samples
 
     def _validate(self, dataloader):
         # Set model to evaluation mode and disable gradient computation
         running_loss = 0
+        total_samples = 0
         self.model.eval()
         with torch.no_grad():
             for inputs, labels in dataloader:
@@ -184,10 +185,11 @@ class LRFinder(object):
 
                 # Forward pass and loss computation
                 outputs = self.model([inputs, labels], phase='val')
-                loss = self.criterion(outputs)
-                running_loss += loss.item() * inputs.size(0)
+                loss, n_samples = self.criterion(outputs)
+                running_loss += loss.item() * n_samples
+                total_samples += n_samples
 
-        return running_loss / len(dataloader.dataset)
+        return running_loss / total_samples
 
     def plot(self, skip_start=10, skip_end=5, log_lr=True):
         """Plots the learning rate range test.

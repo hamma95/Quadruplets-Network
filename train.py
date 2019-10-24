@@ -1,6 +1,7 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
+import tqdm
 
 import pandas as pd
 import copy
@@ -8,15 +9,14 @@ import time
 from IPython.display import display, clear_output
 from collections import OrderedDict
 
-from utils import flatten_model
 
-# Todo Trying to backward through the graph a second time, but the buffers have already been freed.
-#  Specify retain_graph=True when calling backward the first time.(happens after changing loss_func)
-
-# TODO the dataframe keeps record of previous training results, after i unfreeze and call learn.fit again
-
-
-# TODO the scheduler data has to be updated every time u stop and continue training
+def flatten_model(network, all_layers):
+    for layer in network.children():
+        if not list(layer.children()):  # if leaf node, add it to list
+            all_layers.append(layer)
+        else:
+            flatten_model(layer, all_layers)
+    return all_layers
 
 
 class Epoch:
@@ -91,8 +91,8 @@ class Learner:
                 self.tb.add_scalar(f'{metric.__class__.__name__}', last_acc, self.epoch.number)
                 self.results[f'{metric.__class__.__name__}'].append(last_acc)
             df = pd.DataFrame.from_dict(self.results, orient='columns')
-            clear_output(wait=True)
             display(df)
+            clear_output(wait=True)
             if self.chosen_metric:
                 acc_value = self.chosen_metric.on_epoch_end()
                 if acc_value > self.best_acc:
@@ -114,7 +114,10 @@ class Learner:
                 else:
                     self.model.eval()  # Set model to evaluate mode
                 # Iterate over data.
-                for inputs, labels in self.dataloaders[phase]:
+                n_iterations = len(self.dataloaders[phase])
+                iterator = iter(self.dataloaders[phase])
+                for _ in tqdm.tqdm(range(n_iterations)):
+                    inputs, labels = next(iterator)
                     inputs = inputs.to(self.device)
                     labels = labels.to(self.device)
                     # zero the parameter gradients
@@ -123,7 +126,7 @@ class Learner:
                     # track history if only in train
                     with torch.set_grad_enabled(phase == 'train'):
                         outputs = self.model([inputs, labels], phase)
-                        loss, n_samples = self.loss_func(outputs, labels)
+                        loss, n_samples = self.loss_func(outputs)
                         # backward + optimize only if in training phase
                         if phase == 'train':
                             loss.backward()
@@ -138,11 +141,7 @@ class Learner:
                         if self.scheduler is not None:
                             self.scheduler.step()
                 self.end_epoch(phase)
-
-        # load best model weights
-        if self.chosen_metric:
-            self.model.load_state_dict(self.best_model_wts)
-            self.tb.close()
+        self.tb.close()
 
     def freeze_block(self, index):
         frozen, unfrozen = list(self.model.children())[:index], list(self.model.children())[index:]
