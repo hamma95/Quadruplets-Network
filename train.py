@@ -1,7 +1,7 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
-import tqdm
+from tqdm import tqdm_notebook as tqdm
 
 import pandas as pd
 import copy
@@ -91,8 +91,8 @@ class Learner:
                 self.tb.add_scalar(f'{metric.__class__.__name__}', last_acc, self.epoch.number)
                 self.results[f'{metric.__class__.__name__}'].append(last_acc)
             df = pd.DataFrame.from_dict(self.results, orient='columns')
-            display(df)
             clear_output(wait=True)
+            display(df)
             if self.chosen_metric:
                 acc_value = self.chosen_metric.on_epoch_end()
                 if acc_value > self.best_acc:
@@ -116,7 +116,7 @@ class Learner:
                 # Iterate over data.
                 n_iterations = len(self.dataloaders[phase])
                 iterator = iter(self.dataloaders[phase])
-                for _ in tqdm.tqdm(range(n_iterations)):
+                for _ in tqdm(range(n_iterations)):
                     inputs, labels = next(iterator)
                     inputs = inputs.to(self.device)
                     labels = labels.to(self.device)

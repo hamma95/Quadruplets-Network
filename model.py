@@ -50,7 +50,7 @@ class MakePairs(nn.Module):
         if similarity:
             x = self.similarity_matrix_pairs(feature_maps, labels, phase)
         else:
-            x = self.one_shot_matrix_pairs(feature_maps,labels)
+            x = self.one_shot_matrix_pairs(feature_maps, labels)
         return x
 
     def quadruplets_generator(self, labels, phase='train', cpu=False):
@@ -83,7 +83,7 @@ class MakePairs(nn.Module):
     def one_shot_pair_generator(self, labels, n_samples, cpu=False):
         if cpu:
             labels = labels.detach().cpu()
-        label_list = labels.reshape(-1, n_samples)[0]
+        label_list = labels.reshape(-1, n_samples)[:, 0]
         class_indices = OrderedDict(
             (label, torch.where(labels == label)[0])
             for label in label_list
@@ -124,7 +124,7 @@ class QuadrupletsNetwork(nn.Module):
             x = (self.classifier(ap_features),
                  self.classifier(an_features),
                  self.classifier(nn2_features),
-                )
+                 )
             x = torch.stack(x, dim=0)
         else:
             x = self.model2(pairs)

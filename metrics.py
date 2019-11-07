@@ -29,9 +29,10 @@ class Accuracy:
     def on_epoch_begin(self, **kwargs):
         self.total, self.count = 0., 0
 
-    def on_batch_end(self, output, labels, n_samples):
-        output = output[..., 1].view(-1, n_samples)
-        label_list = labels.reshape(-1, n_samples)[:, 0]
+    def on_batch_end(self, output, labels, samples_per_class):
+        n_classes = int(labels.size(0) / samples_per_class)
+        output = output[..., 1].view(-1, n_classes)
+        label_list = labels.reshape(-1, samples_per_class)[:, 0]
         max_similarities = output.argmin(dim=-1)
         pred = label_list[max_similarities]
         result = pred == labels
